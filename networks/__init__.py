@@ -1,1 +1,1 @@
-from .network import FFDenseNet
+from .ffdensenetwork import FFDenseNet
