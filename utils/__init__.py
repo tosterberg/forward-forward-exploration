@@ -1,1 +1,1 @@
-from .loaders import mnist_loaders
+from .loaders import *
