@@ -3,12 +3,11 @@
 ## Current Examples
 
 Below is the instructions for running the first pass on experimenting with the forward-forward algorithm.
-I need to add a `requirements.txt` file and further package up this repo for future extensibility.
 
 ```bash
 git clone https://github.com/tosterberg/forward-forward-exploration.git
-cd forward-forward-exploration/examples
-python3 main.py
+cd forward-forward-exploration
+python3 main
 ```
 
 ## TODO's

@@ -1,34 +1,14 @@
 import os
-import torch
 import random
-import torchvision
-from torchvision.datasets import MNIST
-from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
-from torch.utils.data import DataLoader
 from datetime import timedelta
+
 import numpy as np
-import pandas as pd
+import torch
+import torchvision
+from hydra.utils import get_original_cwd
+from torchvision.transforms import Compose, ToTensor, Normalize
 
-DATA = '../data/'
-
-
-def mnist_loaders(train_size, test_size, norms):
-    transform = Compose([ToTensor(), Normalize(*norms), Lambda(lambda x: torch.flatten(x))])
-    train_loader = DataLoader(MNIST('../data/',
-                                    train=True,
-                                    download=True,
-                                    transform=transform),
-                              batch_size=train_size,
-                              shuffle=True)
-
-    test_loader = DataLoader(MNIST('../data/',
-                                   train=True,
-                                   download=True,
-                                   transform=transform),
-                             batch_size=test_size,
-                             shuffle=True)
-
-    return train_loader, test_loader
+from src import ffclassifier, ffmodel
 
 
 def parse_args(opt):
@@ -47,12 +27,13 @@ def get_input_layer_size(opt):
         raise ValueError("Unknown dataset.")
 
 
-def get_model_and_optimizer(opt, model):
+def get_model_and_optimizer(opt):
+    model = ffmodel.FFModel(opt)
     if "cuda" in opt.device:
         model = model.cuda()
     print(model, "\n")
 
-    # Create optimizer with different hyper-parameters for the main model
+    # Create optimizer with different hyperparameters for the main model
     # and the downstream classification model.
     main_model_params = [
         p
@@ -76,8 +57,36 @@ def get_model_and_optimizer(opt, model):
         ]
     )
     return model, optimizer
-# 784, 2000, 2000, 2000 # main params
-# 6000, 10 # classification_loss params
+
+
+def get_data(opt, partition):
+    if opt.input.dataset == "mnist":
+        dataset = ffclassifier.FF_MNIST(opt, partition, num_classes=10)
+    elif opt.input.dataset == "cifar10":
+        dataset = ffclassifier.FF_CIFAR10(opt, partition, num_classes=10)
+    else:
+        raise ValueError("Unknown dataset.")
+
+    # Improve reproducibility in dataloader.
+    g = torch.Generator()
+    g.manual_seed(opt.seed)
+
+    return torch.utils.data.DataLoader(
+        dataset,
+        batch_size=opt.input.batch_size,
+        drop_last=True,
+        shuffle=True,
+        worker_init_fn=seed_worker,
+        generator=g,
+        num_workers=1,
+        persistent_workers=True,
+    )
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2 ** 32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 
 def get_CIFAR10_partition(opt, partition):
@@ -89,14 +98,14 @@ def get_CIFAR10_partition(opt, partition):
     )
     if partition in ["train"]:
         cifar = torchvision.datasets.CIFAR10(
-            DATA,
+            os.path.join(get_original_cwd(), opt.input.path),
             train=True,
             download=True,
             transform=transform,
         )
     elif partition in ["val", "test"]:
         cifar = torchvision.datasets.CIFAR10(
-            DATA,
+            os.path.join(get_original_cwd(), opt.input.path),
             train=False,
             download=True,
             transform=transform,
@@ -111,18 +120,19 @@ def get_MNIST_partition(opt, partition):
     transform = Compose(
         [
             ToTensor(),
+            Normalize((0.1307,), (0.3081,))
         ]
     )
     if partition in ["train"]:
         mnist = torchvision.datasets.MNIST(
-            DATA,
+            os.path.join(get_original_cwd(), opt.input.path),
             train=True,
             download=True,
             transform=transform,
         )
     elif partition in ["val", "test"]:
         mnist = torchvision.datasets.MNIST(
-            DATA,
+            os.path.join(get_original_cwd(), opt.input.path),
             train=False,
             download=True,
             transform=transform,
@@ -191,8 +201,10 @@ def print_results(partition, iteration_time, scalar_outputs, epoch=None):
 
 
 # create save_model function
-def save_model(model):
-    torch.save(model.state_dict(), f"{random.choice([range(100)])}-model.pt")
+def save_model(model, opt):
+    run_name = f'model-{opt.model.name}_' \
+               f'dataset-{opt.input.dataset}'
+    torch.save(model.state_dict(), f"{run_name}.pt")
 
 
 def log_results(result_dict, scalar_outputs, num_steps):
