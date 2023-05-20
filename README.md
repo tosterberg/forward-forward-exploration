@@ -7,7 +7,7 @@ Below is the instructions for running the first pass on experimenting with the f
 ```bash
 git clone https://github.com/tosterberg/forward-forward-exploration.git
 cd forward-forward-exploration
-python3 main
+python3 -m main
 ```
 
 ## TODO's
