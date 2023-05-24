@@ -1,8 +1,6 @@
 import math
-
 import torch
 import torch.nn as nn
-
 from src import utils
 
 
@@ -32,15 +30,13 @@ class FFModel(torch.nn.Module):
             for i in range(self.opt.model.num_layers)
         ]
 
-        # [784,2000,2000,2000]
-
         # Initialize downstream classification loss.
         channels_for_classification_loss = sum(
             self.num_channels[-i] for i in range(self.opt.model.num_layers - 1)
-        )  # 2000+2000+2000 = 6000
+        )
         self.linear_classifier = nn.Sequential(
             nn.Linear(channels_for_classification_loss, 10, bias=False)
-        )  # 6000, 10
+        )
         self.classification_loss = nn.CrossEntropyLoss()
 
         # Initialize weights.
@@ -70,22 +66,15 @@ class FFModel(torch.nn.Module):
                                       idx
                                   ].detach() * self.opt.model.momentum + mean_activity * (
                                           1 - self.opt.model.momentum
-                                  )  # the detach means that the gradient because of previous batches is not backpropagated. only the current mean activity is backpropagated
-        # running_mean * 0.9 + mean_activity * 0.1
-
-        # 2000
-        # 1 = mean activation across entire layer
-        # 
+                                  )
+        # the detach means that the gradient because of previous batches is not backpropagated.
+        # only the current mean activity is backpropagated running_mean * 0.9 + mean_activity * 0.1
 
         peer_loss = (torch.mean(self.running_means[idx]) - self.running_means[idx]) ** 2
         return torch.mean(peer_loss)
 
     def _calc_ff_loss(self, z, labels):
         sum_of_squares = torch.sum(z ** 2, dim=-1)  # sum of squares of each activation. bs*2
-
-        # print("sum of squares shape: ", sum_of_squares.shape)
-        # exit()
-        # s - thresh    --> sigmoid --> cross entropy
 
         logits = sum_of_squares - z.shape[1]  # if the average value of each activation is >1, logit is +ve, else -ve.
         ff_loss = self.ff_loss(logits, labels.float())
@@ -106,11 +95,6 @@ class FFModel(torch.nn.Module):
             "Peer Normalization": torch.zeros(1, device=self.opt.device),
         }
 
-        # print(inputs["pos_images"].shape) # bs, 1, 28, 28
-        # print(inputs["neg_images"].shape) # bs, 1, 28, 28
-        # print(inputs["neutral_sample"].shape) # bs, 1, 28, 28
-        # print(labels["class_labels"].shape) # bs
-        # exit()
         # Concatenate positive and negative samples and create corresponding labels.
         z = torch.cat([inputs["pos_images"], inputs["neg_images"]], dim=0)  # 2*bs, 1, 28, 28
         posneg_labels = torch.zeros(z.shape[0], device=self.opt.device)  # 2*bs
@@ -154,26 +138,6 @@ class FFModel(torch.nn.Module):
                 "Loss": torch.zeros(1, device=self.opt.device),
             }
 
-        # z_all = inputs["all_sample"] # bs, num_classes, C, H, W
-        # z_all = z_all.reshape(z_all.shape[0], z_all.shape[1], -1) # bs, num_classes, C*H*W
-
-        # z_all = self._layer_norm(z_all)
-        # input_classification_model = []
-
-        # with torch.no_grad():
-        #     for idx, layer in enumerate(self.model):
-        #         z_all = layer(z_all)
-        #         z_all = self.act_fn.apply(z_all)
-        #         z_unnorm = z_all.clone()
-        #         z_all = self._layer_norm(z_all)
-
-        #         if idx >= 1:
-        #             # print(z.shape)
-        #             input_classification_model.append(z_unnorm)
-
-        # input_classification_model = torch.concat(input_classification_model, dim=-1) # bs x 6000 # concat all activations from all layers
-        # ssq_all = torch.sum(input_classification_model ** 2, dim=-1)
-
         z_all = inputs["all_sample"]  # bs, num_classes, C, H, W
         z_all = z_all.reshape(z_all.shape[0], z_all.shape[1], -1)  # bs, num_classes, C*H*W
         ssq_all = []
@@ -181,8 +145,6 @@ class FFModel(torch.nn.Module):
             z = z_all[:, class_num, :]  # bs, C*H*W
             z = self._layer_norm(z)
             input_classification_model = []
-
-            # 784, 2000, 2000, 2000
 
             with torch.no_grad():
                 for idx, layer in enumerate(self.model):
@@ -222,8 +184,6 @@ class FFModel(torch.nn.Module):
 
         input_classification_model = []
 
-        # 784, 2000, 2000, 2000
-
         with torch.no_grad():
             for idx, layer in enumerate(self.model):
                 z = layer(z)
@@ -231,22 +191,14 @@ class FFModel(torch.nn.Module):
                 z = self._layer_norm(z)
 
                 if idx >= 1:
-                    # print(z.shape)
                     input_classification_model.append(z)
 
         input_classification_model = torch.concat(input_classification_model,
                                                   dim=-1)  # concat all activations from all layers
 
-        # print(input_classification_model.shape)
-        # exit()
-
-        # [0.5, 1, 1.5, ....]
-        # max = 3
-        # [-2.5, -2, -1.5, .. 0, ..]
-
         output = self.linear_classifier(input_classification_model.detach())  # bs x 10 ,
         output = output - torch.max(output, dim=-1, keepdim=True)[
-            0]  # not entirely clear why each entry in output is made 0 or -ve
+            0]  # follow-up why each entry in output is made 0 or -ve
         classification_loss = self.classification_loss(output, labels["class_labels"])
         classification_accuracy = utils.get_accuracy(
             self.opt, output.data, labels["class_labels"]
@@ -258,7 +210,6 @@ class FFModel(torch.nn.Module):
         return scalar_outputs
 
 
-# unclear as to why normal relu doesn't work
 class ReLU_full_grad(torch.autograd.Function):
     """ ReLU activation function that passes through the gradient irrespective of its input value. """
 

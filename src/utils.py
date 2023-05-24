@@ -1,15 +1,12 @@
 import os
 import random
 from datetime import timedelta
-
 import numpy as np
 import torch
 import torchvision
 from hydra.utils import get_original_cwd
 from torchvision.transforms import Compose, ToTensor, Normalize
-
 from src import ffclassifier, ffmodel
-
 
 def parse_args(opt):
     np.random.seed(opt.seed)

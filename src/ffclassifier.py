@@ -1,9 +1,7 @@
 import numpy as np
 import torch
-
 from src import utils
 from abc import ABC, abstractmethod
-
 
 class FFClassifier(ABC):
     def __init__(self, opt, num_classes):
