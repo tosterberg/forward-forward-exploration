@@ -6,16 +6,16 @@ input:
   test_path: datasets
   path: datasets
   batch_size: 128
-  dataset: "mnist" # "mnist" or "cifar10"
+  dataset: "mnist"  # ["mnist", "cifar10"]
 
 
 model:
-  name: "model"  # "model" or "ffmodel"
-  type: "linear"  # "linear" or "mlp"
+  name: "model"  # ["model", "ffmodel"]
+  type: "linear"  # ["linear", "mlp"]
   peer_normalization: 0.3
   momentum: 0.9  # Momentum to use for the running mean in peer normalization loss.
-  hidden_dim: 1000 # 500, 1000, 2000
-  num_layers: 4 # 2, 4, 8
+  hidden_dim: 500  # [500, 1000, 2000]
+  num_layers: 2  # [2, 4, 8]
 
 
 training:
@@ -23,7 +23,7 @@ training:
   learning_rate: 1e-3
   weight_decay: 3e-4
   momentum: 0.9
-  threshold: 0.75  # 0.25, 0.5, 0.75
+  threshold: 0.75  # [0.25, 0.5, 0.75] -- ff models only
   downstream_learning_rate: 1e-3
   downstream_weight_decay: 3e-3
   val_idx: 1  # -1: validate only once training has finished; n: validate every n epochs.
