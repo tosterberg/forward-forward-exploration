@@ -7,9 +7,11 @@ import matplotlib.pyplot as plt
 import hydra
 import torch
 from omegaconf import DictConfig
-
 from src import utils
 
+test_record = {
+    "test_results": []
+}
 
 def train(opt, model, optimizer):
     start_time = time.time()
@@ -23,14 +25,10 @@ def train(opt, model, optimizer):
 
         for inputs, labels in train_loader:
             inputs, labels = utils.preprocess_inputs(opt, inputs, labels) # push to GPU
-
-            # print("input shape:",inputs['sample'].shape)
-            # print("label shape:",labels['class_labels'].shape)
             optimizer.zero_grad()
 
             scalar_outputs = model(inputs, labels)
             scalar_outputs["Loss"].backward()
-
             optimizer.step()
 
             train_results = utils.log_results(
@@ -43,7 +41,6 @@ def train(opt, model, optimizer):
         # Validate.
         if epoch % opt.training.val_idx == 0 and opt.training.val_idx != -1:
             best_val_acc = validate_or_test(opt, model, "val", epoch=epoch, best_val_acc=best_val_acc)
-            # utils.print_results("val", time.time() - start_time, train_results, epoch)
 
     return model
 
@@ -56,7 +53,6 @@ def validate_or_test(opt, model, partition, epoch=None, best_val_acc=1.0):
     num_steps_per_epoch = len(data_loader)
 
     model.eval()
-    print(partition)
     with torch.no_grad():
         for inputs, labels in data_loader:
             inputs, labels = utils.preprocess_inputs(opt, inputs, labels)
@@ -64,12 +60,14 @@ def validate_or_test(opt, model, partition, epoch=None, best_val_acc=1.0):
             scalar_outputs = model.forward_downstream_classification_model(
                 inputs, labels
             )
-            scalar_outputs = model.forward_downstream_multi_pass(
-                inputs, labels, scalar_outputs=scalar_outputs
-            )
+            if opt.model.name == "ffmodel":
+                scalar_outputs = model.forward_downstream_ssq_classification(
+                    inputs, labels, scalar_outputs=scalar_outputs
+                )
             test_results = utils.log_results(
                 test_results, scalar_outputs, num_steps_per_epoch
             )
+            test_record["test_results"].append(test_results)
 
     utils.print_results(partition, time.time() - test_time, test_results, epoch=epoch)
     # save model if classification accuracy is better than previous best
@@ -83,15 +81,17 @@ def validate_or_test(opt, model, partition, epoch=None, best_val_acc=1.0):
 
 
 @hydra.main(config_path=".", config_name="config", version_base=None)
-def my_main(opt: DictConfig) -> None:
+def run(opt: DictConfig) -> None:
     opt = utils.parse_args(opt)
     model, optimizer = utils.get_model_and_optimizer(opt)
     model = train(opt, model, optimizer)
     validate_or_test(opt, model, "val")
+
+    utils.save_record(test_record, opt)
 
     if opt.training.final_test:
         validate_or_test(opt, model, "test")
 
 
 if __name__ == "__main__":
-    my_main()
+    run()

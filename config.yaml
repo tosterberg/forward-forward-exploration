@@ -1,30 +1,32 @@
 seed: 0
-device: "cuda"  # cpu or cuda
+device: "cuda"  # cpu, mps or cuda
 
 input:
   training_path: datasets
   test_path: datasets
   path: datasets
-  batch_size: 100
-  dataset: "cifar10" # "mnist" or "cifar10"
+  batch_size: 128
+  dataset: "mnist" # "mnist" or "cifar10"
 
 
 model:
-  name: "ffclassifier"
-  peer_normalization: 0.02
-  momentum: 0.85  # Momentum to use for the running mean in peer normalization loss.
-  hidden_dim: 2000
-  num_layers: 5
+  name: "model"  # "model" or "ffmodel"
+  type: "linear"  # "linear" or "mlp"
+  peer_normalization: 0.3
+  momentum: 0.9  # Momentum to use for the running mean in peer normalization loss.
+  hidden_dim: 500 # 500, 1000, 2000
+  num_layers: 4 # 2, 4, 8
 
 
 training:
-  epochs: 250
+  epochs: 100
   learning_rate: 1e-3
   weight_decay: 3e-4
   momentum: 0.9
-  downstream_learning_rate: 1e-2
+  threshold: 0.75  # 0.25, 0.5, 0.75
+  downstream_learning_rate: 1e-3
   downstream_weight_decay: 3e-3
-  val_idx: 10  # -1: validate only once training has finished; n: validate every n epochs.
+  val_idx: 1  # -1: validate only once training has finished; n: validate every n epochs.
   final_test: True  # Set to true to evaluate performance on test-set.
 
 

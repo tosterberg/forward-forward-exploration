@@ -2,11 +2,13 @@ import os
 import random
 from datetime import timedelta
 import numpy as np
+import json
 import torch
 import torchvision
 from hydra.utils import get_original_cwd
 from torchvision.transforms import Compose, ToTensor, Normalize
-from src import ffclassifier, ffmodel
+from src import ffclassifier, ffmodel, classifier
+from src import model as md
 
 def parse_args(opt):
     np.random.seed(opt.seed)
@@ -25,10 +27,19 @@ def get_input_layer_size(opt):
 
 
 def get_model_and_optimizer(opt):
-    model = ffmodel.FFModel(opt)
+    if opt.model.name == "ffmodel":
+        if opt.model.type == "mlp":
+            model = ffmodel.FFModel(opt)
+        else:
+            model = ffmodel.FFModel(opt)
+    else:
+        if opt.model.type == "mlp":
+            model = md.Model(opt)
+        else:
+            model = md.Model(opt)
+
     if "cuda" in opt.device:
         model = model.cuda()
-    print(model, "\n")
 
     # Create optimizer with different hyperparameters for the main model
     # and the downstream classification model.
@@ -57,12 +68,18 @@ def get_model_and_optimizer(opt):
 
 
 def get_data(opt, partition):
-    if opt.input.dataset == "mnist":
-        dataset = ffclassifier.FF_MNIST(opt, partition, num_classes=10)
-    elif opt.input.dataset == "cifar10":
-        dataset = ffclassifier.FF_CIFAR10(opt, partition, num_classes=10)
+    if opt.model.name == "ffmodel":
+        if opt.input.dataset == "mnist":
+            dataset = ffclassifier.FF_MNIST(opt, partition, num_classes=10)
+        elif opt.input.dataset == "cifar10":
+            dataset = ffclassifier.FF_CIFAR10(opt, partition, num_classes=10)
     else:
-        raise ValueError("Unknown dataset.")
+        if opt.input.dataset == "mnist":
+            dataset = classifier.MNIST(opt, partition, num_classes=10)
+        elif opt.input.dataset == "cifar10":
+            dataset = classifier.CIFAR10(opt, partition, num_classes=10)
+        else:
+            raise ValueError("Unknown dataset.")
 
     # Improve reproducibility in dataloader.
     g = torch.Generator()
@@ -173,9 +190,8 @@ def update_learning_rate(optimizer, opt, epoch):
 
 def get_accuracy(opt, output, target):
     """Computes the accuracy."""
-    with torch.no_grad():
-        prediction = torch.argmax(output, dim=1)
-        return (prediction == target).sum() / opt.input.batch_size
+    prediction = torch.argmax(output, dim=1)
+    return (prediction == target).sum() / opt.input.batch_size
 
 
 def print_results(partition, iteration_time, scalar_outputs, epoch=None):
@@ -199,10 +215,23 @@ def print_results(partition, iteration_time, scalar_outputs, epoch=None):
 
 # create save_model function
 def save_model(model, opt):
-    run_name = f'model-{opt.model.name}_' \
+    run_name = f'{opt.model.type}-{opt.model.name}_' \
                f'dataset-{opt.input.dataset}'
     torch.save(model.state_dict(), f"{run_name}.pt")
 
+def save_record(record, opt):
+    threshold = ''
+    if opt.model.name == "ffmodel":
+        threshold = f'threshold-{opt.training.threshold}_'
+
+    run_name = f'{opt.model.type}-{opt.model.name}_' \
+               f'dataset-{opt.input.dataset}_' \
+               f'{threshold}' \
+               f'layers-{opt.model.num_layers}_' \
+               f'dim-{opt.model.hidden_dim}'
+    json_record = json.dumps(record)
+    with open(f"{run_name}.json", "w") as f:
+        f.write(json_record)
 
 def log_results(result_dict, scalar_outputs, num_steps):
     for key, value in scalar_outputs.items():
