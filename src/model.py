@@ -16,8 +16,8 @@ class Model(torch.nn.Module):
         self.num_channels = [self.opt.model.hidden_dim] * self.opt.model.num_layers
         self.act_fn = ReLU_full_grad()
         self.model_initializers = {
-            'linear': self._init_linear_model(),
-            'mlp': self._init_mlp_model()
+            'linear': self._init_linear_model,
+            'mlp': self._init_mlp_model
         }
 
         # Initialize the model.
