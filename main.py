@@ -101,7 +101,7 @@ if __name__ == "__main__":
         } ,
         "model": {
             "name": "model",
-            "type": ["mlp", "linear"],
+            "type": "linear",
             "hidden_dim": [500, 1000, 2000],
             "num_layers": [2, 4, 8],
         },
@@ -110,7 +110,7 @@ if __name__ == "__main__":
         }
     }
 
-    mlp_options = {
+    cnn_options = {
         "input": {
             "dataset": ["mnist", "cifar10"],
         },
@@ -141,9 +141,9 @@ if __name__ == "__main__":
     }
 
     bpe_sequences = utils.flatten_object_on_keys(bpe_options, ["dataset", "type", "hidden_dim", "num_layers"])
-    mlp_sequences = utils.flatten_object_on_keys(mlp_options, overwrites)
+    cnn_sequences = utils.flatten_object_on_keys(cnn_options, overwrites)
     ff_sequences = utils.flatten_object_on_keys(ff_options, overwrites)
-    test_sequences = mlp_sequences + bpe_sequences + ff_sequences
+    test_sequences = cnn_sequences + bpe_sequences + ff_sequences
 
     for test in test_sequences:
         f = open("config.yaml", "r")
