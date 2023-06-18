@@ -1,16 +1,14 @@
 import time
 from collections import defaultdict
-import os
-import argparse
-import json
-import matplotlib.pyplot as plt
 import hydra
 import torch
 from omegaconf import DictConfig
 from src import utils
 
 test_record = {
-    "test_results": []
+    "test_results": [],
+    "train_times": [],
+    "inference_times": []
 }
 
 def train(opt, model, optimizer):
@@ -36,6 +34,7 @@ def train(opt, model, optimizer):
             )
 
         utils.print_results("train", time.time() - start_time, train_results, epoch)
+        test_record["train_times"].append(time.time() - start_time)
         start_time = time.time()
 
         # Validate.
@@ -68,6 +67,7 @@ def validate_or_test(opt, model, partition, epoch=None, best_val_acc=1.0):
                 test_results, scalar_outputs, num_steps_per_epoch
             )
             test_record["test_results"].append(test_results)
+            test_record["inference_times"].append(time.time() - test_time)
 
     utils.print_results(partition, time.time() - test_time, test_results, epoch=epoch)
     # save model if classification accuracy is better than previous best
@@ -85,10 +85,9 @@ def run(opt: DictConfig) -> None:
     opt = utils.parse_args(opt)
     model, optimizer = utils.get_model_and_optimizer(opt)
     model = train(opt, model, optimizer)
+
     validate_or_test(opt, model, "val")
-
     utils.save_record(test_record, opt)
-
     if opt.training.final_test:
         validate_or_test(opt, model, "test")
 

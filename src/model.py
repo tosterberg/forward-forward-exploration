@@ -15,10 +15,21 @@ class Model(torch.nn.Module):
         self.classification_categories = 10
         self.num_channels = [self.opt.model.hidden_dim] * self.opt.model.num_layers
         self.act_fn = ReLU_full_grad()
-
-        input_layer_size = utils.get_input_layer_size(opt)
+        self.model_initializers = {
+            'linear': self._init_linear_model(),
+            'mlp': self._init_mlp_model()
+        }
 
         # Initialize the model.
+        self.model_initializers[opt.model.type]()
+        self.classification_loss = nn.CrossEntropyLoss()
+
+        # Initialize weights.
+        self._init_weights()
+
+    def _init_linear_model(self):
+        input_layer_size = utils.get_input_layer_size(self.opt)
+
         self.model = nn.ModuleList([nn.Linear(input_layer_size, self.num_channels[0])])
         for i in range(1, len(self.num_channels)):
             self.model.append(nn.Linear(self.num_channels[i - 1], self.num_channels[i]))
@@ -29,10 +40,10 @@ class Model(torch.nn.Module):
         self.linear_classifier = nn.Sequential(
             nn.Linear(channels_for_classification_loss, self.classification_categories, bias=False)
         )
-        self.classification_loss = nn.CrossEntropyLoss()
 
-        # Initialize weights.
-        self._init_weights()
+
+    def _init_mlp_model(self):
+        pass
 
     def _init_weights(self):
         for m in self.model.modules():

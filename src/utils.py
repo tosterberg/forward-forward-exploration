@@ -3,6 +3,7 @@ import random
 from datetime import timedelta
 import numpy as np
 import json
+import shutil
 import torch
 import torchvision
 from hydra.utils import get_original_cwd
@@ -230,8 +231,9 @@ def save_record(record, opt):
                f'layers-{opt.model.num_layers}_' \
                f'dim-{opt.model.hidden_dim}'
     json_record = json.dumps(record)
-    with open(f"archive/{run_name}.json", "w") as f:
+    with open(f"tests/{run_name}.json", "w") as f:
         f.write(json_record)
+    shutil.move('config.yaml', f'tests/{run_name}.yaml')
 
 def log_results(result_dict, scalar_outputs, num_steps):
     for key, value in scalar_outputs.items():
