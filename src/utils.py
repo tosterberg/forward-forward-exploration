@@ -230,7 +230,7 @@ def save_record(record, opt):
                f'layers-{opt.model.num_layers}_' \
                f'dim-{opt.model.hidden_dim}'
     json_record = json.dumps(record)
-    with open(f"{run_name}.json", "w") as f:
+    with open(f"archive/{run_name}.json", "w") as f:
         f.write(json_record)
 
 def log_results(result_dict, scalar_outputs, num_steps):
