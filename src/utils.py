@@ -10,6 +10,7 @@ from hydra.utils import get_original_cwd
 from torchvision.transforms import Compose, ToTensor, Normalize
 from src import ffclassifier, ffmodel, classifier
 from src import model as md
+from itertools import product
 
 def parse_args(opt):
     np.random.seed(opt.seed)
@@ -233,7 +234,24 @@ def save_record(record, opt):
     json_record = json.dumps(record)
     with open(f"tests/{run_name}.json", "w") as f:
         f.write(json_record)
-    shutil.move('config.yaml', f'tests/{run_name}.yaml')
+    shutil.copy('config.yaml', f'tests/{run_name}.yaml')
+
+def flatten_object_on_keys(obj, flatten_keys):
+    """ Converts complex object into array of objects with individual parameter values in the flatten_keys """
+    keys = obj.keys()
+    values = []
+    for key, val in obj.items():
+        if isinstance(val, (list, tuple, set)) and key in flatten_keys:
+            values.append(val)
+        elif isinstance(val, dict):
+            values.append(flatten_object_on_keys(val, flatten_keys))
+        else:
+            values.append([val])
+    output = []
+    for combination in product(*values):
+        output.append(dict(zip(keys, combination)))
+    return output
+
 
 def log_results(result_dict, scalar_outputs, num_steps):
     for key, value in scalar_outputs.items():

@@ -43,11 +43,31 @@ class Model(torch.nn.Module):
 
 
     def _init_mlp_model(self):
-        pass
+        if self.opt.input.dataset == "mnist":
+            self.pool = nn.MaxPool2d(2)
+            self.conv1 = nn.Conv2d(1, 16, 5, 1, 2)
+            self.conv2 = nn.Conv2d(16, 32, 5, 1, 2)
+            self.lin1 = nn.Linear(32 * 7 * 7, 120)
+            self.lin2 = nn.Linear(120, 84)
+        else:
+            self.pool = nn.MaxPool2d(2, 2)
+            self.conv1 = nn.Conv2d(3, 6, 5)
+            self.conv2 = nn.Conv2d(6, 16, 5)
+            self.lin1 = nn.Linear(16 * 5 * 5, 120)
+            self.lin2 = nn.Linear(120, 84)
+        self.model = nn.ModuleList([self.conv1, self.conv2, self.lin1, self.lin2])
+        self.linear_classifier = nn.Sequential(
+            nn.Linear(84, 10)
+        )
 
     def _init_weights(self):
         for m in self.model.modules():
             if isinstance(m, nn.Linear):
+                torch.nn.init.normal_(
+                    m.weight, mean=0, std=1 / math.sqrt(m.weight.shape[0])
+                )
+                torch.nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Conv2d):
                 torch.nn.init.normal_(
                     m.weight, mean=0, std=1 / math.sqrt(m.weight.shape[0])
                 )
@@ -68,13 +88,22 @@ class Model(torch.nn.Module):
 
         # Concatenate positive and negative samples and create corresponding labels.
         z = inputs["sample"]
-        z = z.reshape(z.shape[0], -1)
-        z = self._layer_norm(z)
-
-        for idx, layer in enumerate(self.model):
-            z = layer(z)
-            z = self.act_fn.apply(z)
+        if self.opt.model.type == "mlp":
+            z = self.pool(self.act_fn.apply(self.conv1(z)))
+            z = self.pool(self.act_fn.apply(self.conv2(z)))
+            z = torch.flatten(z, 1)
             z = self._layer_norm(z)
+            z = self.act_fn.apply(self.lin1(z))
+            z = self._layer_norm(z)
+            z = self.act_fn.apply(self.lin2(z))
+            z = self._layer_norm(z)
+        else:
+            z = z.reshape(z.shape[0], -1)
+            z = self._layer_norm(z)
+            for idx, layer in enumerate(self.model):
+                z = layer(z)
+                z = self.act_fn.apply(z)
+                z = self._layer_norm(z)
 
         scalar_outputs = self.forward_downstream_classification_model(
             inputs, labels, scalar_outputs=scalar_outputs
@@ -90,18 +119,26 @@ class Model(torch.nn.Module):
             }
 
         z = inputs["sample"]
-        z = z.reshape(z.shape[0], -1)
-        z = self._layer_norm(z)
-
         input_classification_model = []
-
-        for idx, layer in enumerate(self.model):
-            z = layer(z)
-            z = self.act_fn.apply(z)
+        if self.opt.model.type == "mlp":
+            z = self.pool(self.act_fn.apply(self.conv1(z)))
+            z = self.pool(self.act_fn.apply(self.conv2(z)))
+            z = torch.flatten(z, 1)
+            z = self.act_fn.apply(self.lin1(z))
+            z = self.act_fn.apply(self.lin2(z))
+            input_classification_model.append(z)
+        else:
+            z = z.reshape(z.shape[0], -1)
             z = self._layer_norm(z)
 
-            if idx >= 1:
-                input_classification_model.append(z)
+
+            for idx, layer in enumerate(self.model):
+                z = layer(z)
+                z = self.act_fn.apply(z)
+                z = self._layer_norm(z)
+
+                if idx >= 1:
+                    input_classification_model.append(z)
 
         input_classification_model = torch.concat(input_classification_model,
                                                   dim=-1)  # concat all activations from all layers
