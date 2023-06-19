@@ -102,8 +102,8 @@ if __name__ == "__main__":
         "model": {
             "name": "model",
             "type": "linear",
-            "hidden_dim": [500, 1000, 2000],
-            "num_layers": [2, 4, 8],
+            "hidden_dim": [1000, 2000],
+            "num_layers": [4],
         },
         "training": {
             "threshold": 0
@@ -132,18 +132,18 @@ if __name__ == "__main__":
         "model": {
             "name": "ffmodel",
             "type": "linear",
-            "hidden_dim": [500, 1000, 2000],
-            "num_layers": [2, 4, 8],
+            "hidden_dim": [1000, 2000],
+            "num_layers": [4],
         },
         "training": {
-            "threshold": [0.05, 0.5, 0.95]
+            "threshold": [0.5, 0.95]
         }
     }
 
-    bpe_sequences = utils.flatten_object_on_keys(bpe_options, ["dataset", "type", "hidden_dim", "num_layers"])
+    bpe_sequences = utils.flatten_object_on_keys(bpe_options, overwrites)
     cnn_sequences = utils.flatten_object_on_keys(cnn_options, overwrites)
     ff_sequences = utils.flatten_object_on_keys(ff_options, overwrites)
-    test_sequences = ff_sequences + bpe_sequences + cnn_sequences
+    test_sequences = bpe_sequences + ff_sequences + cnn_sequences
 
     for test in test_sequences:
         f = open("config.yaml", "r")
