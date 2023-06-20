@@ -1,6 +1,8 @@
 import time
 from collections import defaultdict
 import hydra
+import os
+import json
 import yaml
 import torch
 from omegaconf import DictConfig
@@ -11,6 +13,16 @@ test_record = {
     "train_times": [],
     "inference_times": []
 }
+
+def reset_test_record():
+    global test_record
+    test_record= None
+    test_record = {
+        "test_results": [],
+        "train_times": [],
+        "inference_times": []
+    }
+
 
 def train(opt, model, optimizer):
     start_time = time.time()
@@ -93,7 +105,7 @@ def run(opt: DictConfig) -> None:
         validate_or_test(opt, model, "test")
 
 
-if __name__ == "__main__":
+def full_test_run():
     overwrites = ["dataset", "type", "hidden_dim", "num_layers", "threshold"]
     bpe_options = {
         "input": {
@@ -145,7 +157,9 @@ if __name__ == "__main__":
     ff_sequences = utils.flatten_object_on_keys(ff_options, overwrites)
     test_sequences = bpe_sequences + ff_sequences + cnn_sequences
 
-    for test in test_sequences:
+    for idx, test in enumerate(test_sequences):
+        print(f'Starting test {idx} of {len(test_sequences)}')
+        reset_test_record()
         f = open("config.yaml", "r")
         config = yaml.safe_load(f)
         f.close()
@@ -160,3 +174,61 @@ if __name__ == "__main__":
             f.close()
         run()
         print(f"Test complete: {test}")
+        print(f'Finished test {idx} of {len(test_sequences)}')
+        print("============================================")
+
+
+def analysis():
+    paths = []
+    for root, dirs, files in os.walk(r"tests/"):
+        for file in files:
+            if file.endswith(".json"):
+                inf = None
+                trn = None
+                loss = []
+                acc = []
+                ssq = []
+                f = open(os.path.join(root, file))
+                json_data = json.load(f)
+                for key in json_data:
+                    if key == "inference_times":
+                        inf = json_data[key]
+                    elif key == "train_times":
+                        trn = json_data[key]
+                    else:
+                        for item in json_data[key]:
+                            for k in item:
+                                if k == "Loss":
+                                    loss.append(item[k])
+                                elif k == "classification_accuracy":
+                                    acc.append(item[k])
+                                elif k == "multi_pass_classification_accuracy":
+                                    ssq.append(item[k])
+
+                record = {
+                    "path": os.path.join(root, file),
+                    "title": file,
+                    "inference_times": inf,
+                    "training_times": trn,
+                    "loss": loss.copy(),
+                    "acc": acc.copy(),
+                    "ssq": ssq.copy()
+                }
+                paths.append(record)
+                f.close()
+
+    for path in paths:
+        print("\n")
+        print(path['title'])
+        print("============================")
+        print(f'Average Training Time:  {sum(path["training_times"])/len(path["training_times"])}')
+        print(f'Average Inference Time: {sum(path["inference_times"])/len(path["inference_times"])}')
+        if len(path["ssq"]) > 0:
+            print(f'Max SSQ Acc:            {max(path["ssq"])}')
+        print(f'Max Acc:                {max(path["acc"])}')
+        print(f'Min Loss:               {min(path["loss"])}')
+
+
+if __name__ == "__main__":
+    # full_test_run()
+    analysis()
