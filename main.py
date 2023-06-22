@@ -114,8 +114,8 @@ def full_test_run():
         "model": {
             "name": "model",
             "type": "linear",
-            "hidden_dim": [1000, 2000],
-            "num_layers": [4],
+            "hidden_dim": [1000, 2000, 4000],
+            "num_layers": [2, 4],
         },
         "training": {
             "threshold": 0
@@ -144,11 +144,11 @@ def full_test_run():
         "model": {
             "name": "ffmodel",
             "type": "linear",
-            "hidden_dim": [1000, 2000],
-            "num_layers": [4],
+            "hidden_dim": [1000, 2000, 4000],
+            "num_layers": [2, 4],
         },
         "training": {
-            "threshold": [0.5, 0.95]
+            "threshold": [0.5]
         }
     }
 
@@ -230,5 +230,5 @@ def analysis():
 
 
 if __name__ == "__main__":
-    # full_test_run()
+    full_test_run()
     analysis()

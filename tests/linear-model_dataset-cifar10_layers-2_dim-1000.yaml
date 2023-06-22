@@ -4,7 +4,7 @@ hydra:
     dir: logs
 input:
   batch_size: 128
-  dataset: mnist
+  dataset: cifar10
   path: datasets
   test_path: datasets
   training_path: datasets
@@ -12,7 +12,7 @@ model:
   hidden_dim: 1000
   momentum: 0.9
   name: model
-  num_layers: 4
+  num_layers: 2
   peer_normalization: 0.3
   type: linear
 seed: 0
